@@ -6,7 +6,7 @@ from typing import Any
 from brain.confluence import ConfluenceEngine
 from brain.decision import APEXDecisionBrain, BrainDecision
 from brain.execution import ExecutionIntent, ExecutionIntentBuilder
-from brain.fvg import FVGEngine
+from brain.fvg import FVGEngine, OrderBlockEngine
 from brain.intelligence import AbsorptionEngine, AggressionEngine, EffortModel, MicrostructureEngine, RegimeEngine
 from brain.liquidity import LiquidityEngine
 from brain.oi import OIEngine, OISnapshot
@@ -52,6 +52,7 @@ class ApexBrainPipeline:
         self.mtf = MultiTimeframeStructure(swing_strength=1)
         self.liquidity = LiquidityEngine()
         self.fvg = FVGEngine()
+        self.order_blocks = OrderBlockEngine()
         self.orderflow = OrderFlowEngine()
         self.atr = ATRCalculator()
         self.rvol = RVOLCalculator()
@@ -108,6 +109,7 @@ class ApexBrainPipeline:
         self.liquidity.symbol = context.symbol.upper()
         liquidity = self.liquidity.analyze(candles, as_of=as_of)
         fvg = self.fvg.analyze(candles, as_of=as_of, symbol=context.symbol)
+        order_blocks = self.order_blocks.analyze(candles, as_of=as_of, symbol=context.symbol)
         vwap = VWAPCalculator.calculate(candles, as_of=as_of)
         volatility = self.atr.calculate(candles, as_of=as_of)
         volatility_regime = self.atr.classify_regime(
@@ -174,6 +176,8 @@ class ApexBrainPipeline:
             signals.append(self.confluence.liquidity("BULLISH" if liquidity.bias == "LONG" else "BEARISH"))
         if fvg.bias in {"LONG", "SHORT"}:
             signals.append(self.confluence.fvg("BULLISH" if fvg.bias == "LONG" else "BEARISH"))
+        if order_blocks.bias in {"LONG", "SHORT"}:
+            signals.append(self.confluence.order_block("BULLISH" if order_blocks.bias == "LONG" else "BEARISH"))
         if flow_data.get("bias") in {"bullish", "bearish"}:
             signals.append(self.confluence.orderflow("BULLISH" if flow_data["bias"] == "bullish" else "BEARISH"))
         if oi is not None and oi.direction in {"BULLISH", "BEARISH"} and context.price.change_pct is not None and context.oi_change is not None:
@@ -241,6 +245,7 @@ class ApexBrainPipeline:
             mtf=mtf,
             liquidity=liquidity,
             fvg=fvg,
+            order_blocks=order_blocks,
             orderflow=flow,
             microstructure=micro,
             confluence=confluence,
@@ -284,7 +289,7 @@ class ApexBrainPipeline:
                 },
             )
         intent = None
-        if decision.entry is not None and decision.stop_loss is not None:
+        if decision.is_trade and risk.approved and decision.entry is not None and decision.stop_loss is not None:
             intent = self.intent.build(symbol=enriched.symbol, decision=decision, risk=risk)
         final_result = PipelineResult(enriched, decision, risk, intent)
         return PipelineResult(replace(enriched, observability=self.observability.record(final_result)), decision, risk, intent)
