@@ -59,6 +59,7 @@ class MultiTimeframeStructure:
         ],
         as_of: float | None = None,
         timeframe_metadata: dict[str, dict[str, float]] | None = None,
+        symbol: str | None = None,
     ) -> MTFStructureResult:
 
         results: dict[
@@ -89,6 +90,7 @@ class MultiTimeframeStructure:
             result = self.engine.analyze(
                 candles,
                 as_of=as_of,
+                symbol=symbol,
             )
 
             data = result.to_dict()
@@ -155,6 +157,11 @@ class MultiTimeframeStructure:
 
         if conflict:
             reasons.append("Higher and lower timeframe structure conflict")
+
+        if stale_timeframes:
+            bias = "WAIT"
+            aligned = False
+            reasons.append("Stale timeframe structure is unavailable for confirmation")
 
         return MTFStructureResult(
             bias=bias,

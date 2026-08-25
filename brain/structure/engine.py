@@ -152,13 +152,16 @@ class MarketStructureEngine:
         self.swing_strength = swing_strength
 
     @staticmethod
-    def _visible_candles(candles, as_of):
-        if as_of is None:
-            return candles
+    def _visible_candles(candles, as_of, symbol=None):
         return [
             candle for candle in candles
-            if candle.get("event_time", candle.get("timestamp")) is None
-            or float(candle.get("event_time", candle.get("timestamp"))) <= as_of
+            if candle.get("confirmed", True)
+            and (symbol is None or candle.get("symbol") in {None, symbol})
+            and (
+                as_of is None
+                or candle.get("event_time", candle.get("timestamp")) is None
+                or float(candle.get("event_time", candle.get("timestamp"))) <= as_of
+            )
         ]
 
     # =========================================================
@@ -173,10 +176,11 @@ class MarketStructureEngine:
 
         candles: list[dict[str, Any]],
         as_of: float | None = None,
+        symbol: str | None = None,
 
     ) -> list[SwingPoint]:
 
-        candles = self._visible_candles(candles, as_of)
+        candles = self._visible_candles(candles, as_of, symbol)
 
         s = self.swing_strength
 
@@ -286,12 +290,13 @@ class MarketStructureEngine:
 
         candles: list[dict[str, Any]],
         as_of: float | None = None,
+        symbol: str | None = None,
 
     ) -> StructureResult:
 
-        candles = self._visible_candles(candles, as_of)
+        candles = self._visible_candles(candles, as_of, symbol)
 
-        swings = self.detect_swings(candles)
+        swings = self.detect_swings(candles, symbol=symbol)
 
         highs = [
 

@@ -75,7 +75,11 @@ class ApexBrainPipeline:
     ) -> PipelineResult:
         as_of = context.event_time
         candles = [vars(candle) for candle in context.candles]
-        structure = self.structure.analyze(candles, as_of=as_of)
+        structure = self.structure.analyze(
+            candles,
+            as_of=as_of,
+            symbol=context.symbol,
+        )
 
         timeframe_candles = context.metadata.get("candles_by_timeframe", {})
         if not timeframe_candles and candles:
@@ -84,6 +88,7 @@ class ApexBrainPipeline:
             timeframe_candles,
             as_of=as_of,
             timeframe_metadata=context.metadata.get("timeframe_metadata"),
+            symbol=context.symbol,
         )
 
         self.liquidity.symbol = context.symbol.upper()

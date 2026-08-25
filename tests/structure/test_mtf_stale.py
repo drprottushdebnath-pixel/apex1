@@ -28,3 +28,5 @@ def test_stale_required_timeframe_is_explicit():
     )
     assert result.stale is True
     assert result.stale_timeframes == ["1h"]
+    assert result.bias == "WAIT"
+    assert result.aligned is False
