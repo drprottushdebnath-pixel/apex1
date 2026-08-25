@@ -7,7 +7,7 @@ from brain.confluence import ConfluenceEngine
 from brain.decision import APEXDecisionBrain, BrainDecision
 from brain.execution import ExecutionIntent, ExecutionIntentBuilder
 from brain.fvg import FVGEngine
-from brain.intelligence import AbsorptionEngine, AggressionEngine, MicrostructureEngine, RegimeEngine
+from brain.intelligence import AbsorptionEngine, AggressionEngine, EffortModel, MicrostructureEngine, RegimeEngine
 from brain.liquidity import LiquidityEngine
 from brain.oi import OIEngine, OISnapshot
 from brain.risk import RiskGate, RiskResult
@@ -56,6 +56,7 @@ class ApexBrainPipeline:
         self.aggression = AggressionEngine()
         self.absorption = AbsorptionEngine()
         self.regime = RegimeEngine()
+        self.effort = EffortModel(self.aggression, self.absorption)
         self.oi = OIEngine()
         self.microstructure = MicrostructureEngine()
         self.confluence = ConfluenceEngine()
@@ -126,6 +127,14 @@ class ApexBrainPipeline:
             structure=structure,
             value=value,
             aggression=aggression,
+            as_of=as_of,
+            symbol=context.symbol,
+        )
+        effort = self.effort.analyze(
+            candles,
+            flow_data,
+            structure=structure,
+            value=value,
             as_of=as_of,
             symbol=context.symbol,
         )
@@ -237,6 +246,7 @@ class ApexBrainPipeline:
             aggression=aggression,
             absorption=absorption,
             market_regime=regime.state,
+            effort=effort,
         )
         decision = self.decision.analyze(enriched)
         risk = self.risk.evaluate(

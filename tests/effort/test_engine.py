@@ -1,6 +1,6 @@
 import pytest
 
-from brain.intelligence import AbsorptionEngine, AggressionEngine
+from brain.intelligence import AbsorptionEngine, AggressionEngine, EffortModel
 
 
 def candle(event_time, close, volume=10, *, confirmed=True, symbol=None):
@@ -74,3 +74,32 @@ def test_empty_effort_input_fails_closed():
     assert result.detected is False
     assert result.side == "NONE"
     assert result.data_quality == "DATA_INCOMPLETE"
+
+
+def test_effort_model_reports_absorbed_buying_without_trade_decision():
+    result = EffortModel().analyze(
+        [candle(1, 100), candle(2, 100.01, volume=100)],
+        {"buy_volume": 80, "sell_volume": 10, "delta": 70, "aggression": "strong"},
+        as_of=2,
+        symbol="BTCUSDT",
+    )
+
+    assert result.effort_state == "ABSORBED_BUYING"
+    assert result.path_of_least_resistance == "BULLISH"
+    assert not hasattr(result, "decision")
+
+
+def test_effort_model_excludes_future_and_forming_observations():
+    candles = [
+        candle(1, 100, symbol="BTCUSDT"),
+        candle(2, 100.01, symbol="BTCUSDT"),
+        candle(3, 200, confirmed=False, symbol="BTCUSDT"),
+        candle(4, 300, symbol="ETHUSDT"),
+    ]
+    flow = {"buy_volume": 80, "sell_volume": 10, "delta": 70}
+
+    first = EffortModel().analyze(candles, flow, as_of=2, symbol="BTCUSDT")
+    second = EffortModel().analyze(candles, flow, as_of=2, symbol="BTCUSDT")
+
+    assert second.to_dict() == first.to_dict()
+    assert first.event_time == 2

@@ -12,6 +12,8 @@ from .effort import (
     AbsorptionResult,
     AggressionEngine,
     AggressionResult,
+    EffortModel,
+    EffortResult,
 )
 from .regime import RegimeEngine, RegimeResult
 
@@ -24,6 +26,8 @@ __all__ = [
     "AggressionResult",
     "AbsorptionEngine",
     "AbsorptionResult",
+    "EffortModel",
+    "EffortResult",
     "RegimeEngine",
     "RegimeResult",
 ]

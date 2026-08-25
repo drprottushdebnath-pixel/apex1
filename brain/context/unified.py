@@ -207,6 +207,7 @@ class MarketContext:
     value: Any | None = None
     aggression: Any | None = None
     absorption: Any | None = None
+    effort: Any | None = None
     market_regime: str = "unknown"
     microstructure: Any | None = None
     mtf: Any | None = None
@@ -350,6 +351,7 @@ class MarketContext:
             "value": serialize(self.value),
             "aggression": serialize(self.aggression),
             "absorption": serialize(self.absorption),
+            "effort": serialize(self.effort),
             "market_regime": self.market_regime,
             "microstructure": serialize(self.microstructure),
             "mtf": serialize(self.mtf),
