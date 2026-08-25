@@ -110,3 +110,20 @@ def test_wrong_short_stop():
     )
 
     assert result.approved is False
+
+
+def test_named_risk_profiles_have_required_thresholds():
+    conservative = RiskConfig.conservative()
+    aggressive = RiskConfig.aggressive()
+    assert (conservative.risk_per_trade_pct, conservative.max_leverage, conservative.max_correlated_positions) == (1.0, 5.0, 1)
+    assert (aggressive.risk_per_trade_pct, aggressive.max_leverage, aggressive.max_correlated_positions) == (2.0, 10.0, 2)
+
+
+def test_correlated_position_limit_is_authoritative():
+    gate = RiskGate(RiskConfig.conservative())
+    result = gate.evaluate(
+        action="LONG", confidence=80, entry=100, stop_loss=99, leverage=5,
+        correlated_positions=1,
+    )
+    assert result.approved is False
+    assert any("Correlated" in reason for reason in result.rejection_reasons)

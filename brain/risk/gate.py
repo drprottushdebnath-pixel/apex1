@@ -22,6 +22,29 @@ class RiskConfig:
     quantity_step: float = 0.0
     minimum_quantity: float = 0.0
     maximum_spread_pct: float = 100.0
+    max_correlated_positions: int = 1
+
+    @classmethod
+    def conservative(cls, **overrides) -> "RiskConfig":
+        return cls(**{**{
+            "risk_per_trade_pct": 1.0,
+            "max_leverage": 5.0,
+            "max_concurrent_positions": 2,
+            "max_correlated_positions": 1,
+            "daily_drawdown_kill_pct": 3.0,
+            "minimum_confidence": 75.0,
+        }, **overrides})
+
+    @classmethod
+    def aggressive(cls, **overrides) -> "RiskConfig":
+        return cls(**{**{
+            "risk_per_trade_pct": 2.0,
+            "max_leverage": 10.0,
+            "max_concurrent_positions": 4,
+            "max_correlated_positions": 2,
+            "daily_drawdown_kill_pct": 6.0,
+            "minimum_confidence": 60.0,
+        }, **overrides})
 
 
 @dataclass
@@ -59,6 +82,7 @@ class RiskGate:
         max_concurrent_positions: int | None = None,
         daily_drawdown_kill_pct: float | None = None,
         min_confidence: float | None = None,
+        max_correlated_positions: int | None = None,
     ) -> None:
 
         if config is not None and any(
@@ -70,6 +94,7 @@ class RiskGate:
                 max_concurrent_positions,
                 daily_drawdown_kill_pct,
                 min_confidence,
+                max_correlated_positions,
             )
         ):
             raise ValueError("Use config or keyword risk settings, not both")
@@ -81,6 +106,7 @@ class RiskGate:
             max_concurrent_positions=max_concurrent_positions if max_concurrent_positions is not None else 2,
             daily_drawdown_kill_pct=daily_drawdown_kill_pct if daily_drawdown_kill_pct is not None else 3.0,
             minimum_confidence=min_confidence if min_confidence is not None else 75.0,
+            max_correlated_positions=max_correlated_positions if max_correlated_positions is not None else 1,
         )
         self._validate_config()
 
@@ -106,7 +132,7 @@ class RiskGate:
             raise ValueError("Account size and risk percentage must be positive")
         if self.config.max_leverage <= 0 or self.config.contract_multiplier <= 0:
             raise ValueError("Leverage and contract multiplier must be positive")
-        if self.config.max_concurrent_positions < 0 or self.config.daily_drawdown_kill_pct < 0:
+        if self.config.max_concurrent_positions < 0 or self.config.max_correlated_positions < 0 or self.config.daily_drawdown_kill_pct < 0:
             raise ValueError("Position and drawdown limits cannot be negative")
         if self.config.fee_rate_pct < 0 or self.config.slippage_pct < 0:
             raise ValueError("Fees and slippage cannot be negative")
@@ -150,6 +176,7 @@ class RiskGate:
         stop_loss: float | None,
         leverage: float,
         open_positions: int,
+        correlated_positions: int,
         daily_drawdown_pct: float,
         data_quality: str,
         spread_pct: float | None,
@@ -295,6 +322,11 @@ class RiskGate:
                 "Position limit approved"
             )
 
+        if correlated_positions >= self.config.max_correlated_positions:
+            rejected.append("Correlated position limit reached")
+        else:
+            reasons.append("Correlation limit approved")
+
         # -----------------------------------------------------
         # DAILY DRAWDOWN
         # -----------------------------------------------------
@@ -372,6 +404,9 @@ class RiskGate:
                 "max_concurrent_positions":
                     self.config.max_concurrent_positions,
 
+                "max_correlated_positions":
+                    self.config.max_correlated_positions,
+
                 "daily_drawdown_kill_pct":
                     self.config.daily_drawdown_kill_pct,
 
@@ -397,6 +432,7 @@ class RiskGate:
         stop_loss: float | None = None,
         leverage: float | None = None,
         open_positions: int | None = None,
+        correlated_positions: int = 0,
         daily_drawdown_pct: float = 0.0,
 
         # Legacy parameter names.
@@ -505,6 +541,7 @@ class RiskGate:
             stop_loss=stop_loss,
             leverage=float(leverage),
             open_positions=open_positions,
+            correlated_positions=correlated_positions,
             daily_drawdown_pct=float(
                 daily_drawdown_pct
             ),
