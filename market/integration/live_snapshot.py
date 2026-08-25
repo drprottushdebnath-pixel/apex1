@@ -141,6 +141,10 @@ class LiveMarketSnapshot:
                 "absorption":
                     flow.absorption,
 
+                "trade_count": flow.trade_count,
+
+                "buy_sell_imbalance": flow.buy_sell_imbalance,
+
                 "rolling": {
                     str(window): vars(snapshot)
                     for window, snapshot

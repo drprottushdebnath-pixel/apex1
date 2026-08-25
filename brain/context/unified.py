@@ -47,6 +47,7 @@ class Trade:
     price: float
     quantity: float
     side: str
+    symbol: str | None = None
 
     def __post_init__(self) -> None:
         if not self.trade_id:
@@ -56,6 +57,8 @@ class Trade:
             raise ValueError("trade price and quantity must be positive")
         if self.side.upper() not in {"BUY", "SELL"}:
             raise ValueError("trade side must be BUY or SELL")
+        if self.symbol is not None and not self.symbol:
+            raise ValueError("trade symbol cannot be empty")
 
 
 @dataclass(frozen=True)

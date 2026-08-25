@@ -49,6 +49,7 @@ class LiveSnapshotContextAdapter:
                 price=float(item["price"]),
                 quantity=float(item["quantity"]),
                 side=str(item["side"]),
+                symbol=str(item.get("symbol", state.symbol)),
             )
             for item in data.trades
             if item.get("id") is not None
@@ -78,6 +79,7 @@ class LiveSnapshotContextAdapter:
                         "price": trade.price,
                         "quantity": trade.quantity,
                         "side": trade.side,
+                        "symbol": trade.symbol,
                     }
                     for trade in trades
                 ],

@@ -394,6 +394,7 @@ class BybitPublicFeed:
             return
         record = {
             "id": trade_id,
+            "symbol": self.symbol,
             "timestamp": timestamp_ms,
             "price": float(trade["p"]),
             "quantity": float(trade["v"]),
