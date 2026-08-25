@@ -14,6 +14,7 @@ from brain.risk import RiskGate, RiskResult
 from brain.structure import MarketStructureEngine, MultiTimeframeStructure
 from brain.setup import SetupEngine
 from brain.entry import EntryEngine
+from brain.monitoring import PreExpansionDetector
 from brain.value import ValueMigrationEngine
 from market.orderflow import OrderFlowEngine
 from market.indicators import ATRCalculator, RVOLCalculator, VolumeProfileCalculator, VWAPCalculator
@@ -61,6 +62,7 @@ class ApexBrainPipeline:
         self.effort = EffortModel(self.aggression, self.absorption)
         self.setup = SetupEngine()
         self.entry = EntryEngine()
+        self.pre_expansion = PreExpansionDetector()
         self.oi = OIEngine()
         self.microstructure = MicrostructureEngine()
         self.confluence = ConfluenceEngine()
@@ -255,6 +257,8 @@ class ApexBrainPipeline:
         setup = self.setup.analyze(enriched)
         entry = self.entry.analyze(setup)
         enriched = replace(enriched, setup=setup, entry=entry)
+        pre_expansion = self.pre_expansion.analyze(enriched, as_of=as_of)
+        enriched = replace(enriched, pre_expansion=pre_expansion)
         decision = self.decision.analyze(enriched)
         risk = self.risk.evaluate(
             decision=decision,
