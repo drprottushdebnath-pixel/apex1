@@ -63,6 +63,7 @@ class LiveSnapshotContextAdapter:
                 low=float(item["low"]),
                 close=float(item["close"]),
                 volume=float(item["volume"]),
+                confirmed=bool(item.get("confirmed", True)),
             )
             for item in data.candles
             if item.get("confirmed", True)

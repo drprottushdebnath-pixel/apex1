@@ -45,6 +45,15 @@ class PaperExecutionEngine:
         if self.position is not None and self.position.status == "OPEN":
             raise ValueError("Paper position already open")
         entry = float(price if price is not None else intent.entry)
+        if entry <= 0 or intent.quantity <= 0 or intent.stop_loss <= 0:
+            raise ValueError("Paper execution requires positive entry, stop, and quantity")
+        if intent.action == "LONG" and intent.stop_loss >= entry:
+            raise ValueError("Long stop-loss must be below entry")
+        if intent.action == "SHORT" and intent.stop_loss <= entry:
+            raise ValueError("Short stop-loss must be above entry")
+        for target in (intent.tp1, intent.tp2, intent.tp3):
+            if target is not None and (target <= entry if intent.action == "LONG" else target >= entry):
+                raise ValueError("Take-profit must be on the profitable side of entry")
         entry *= 1 + self.slippage_rate if intent.action == "LONG" else 1 - self.slippage_rate
         fee = entry * intent.quantity * self.fee_rate
         self.position = PaperPosition(intent.symbol, intent.action, entry, intent.quantity, intent.stop_loss, intent.tp1, intent.tp2, intent.quantity, -fee, 0.0, "OPEN")
@@ -78,6 +87,21 @@ class PaperExecutionEngine:
             status = "TP1_PARTIAL"
         self.realized_pnl = realized
         self.position = PaperPosition(position.symbol, position.side, position.entry, position.quantity, position.stop_loss, position.tp1, position.tp2, remaining, realized, unrealized if remaining else 0.0, status)
+        return self.position
+
+    def trail(self, stop_loss: float) -> PaperPosition:
+        if self.position is None or self.position.status != "OPEN":
+            raise ValueError("No open paper position is available for trailing")
+        position = self.position
+        if position.side == "LONG" and stop_loss <= position.stop_loss:
+            raise ValueError("Long trailing stop must move upward")
+        if position.side == "SHORT" and stop_loss >= position.stop_loss:
+            raise ValueError("Short trailing stop must move downward")
+        self.position = PaperPosition(
+            position.symbol, position.side, position.entry, position.quantity,
+            float(stop_loss), position.tp1, position.tp2, position.remaining_quantity,
+            position.realized_pnl, position.unrealized_pnl, position.status,
+        )
         return self.position
 
     def close(self, price: float) -> PaperPosition:

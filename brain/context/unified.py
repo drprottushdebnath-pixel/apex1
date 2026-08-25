@@ -23,6 +23,7 @@ class Candle:
     low: float
     close: float
     volume: float = 0.0
+    confirmed: bool = True
 
     def __post_init__(self) -> None:
         values = {
@@ -188,6 +189,7 @@ class MarketContext:
     liquidity: Any | None = None
     structure: Any | None = None
     fvg: Any | None = None
+    order_blocks: Any | None = None
 
     timestamp: float | None = None
 
