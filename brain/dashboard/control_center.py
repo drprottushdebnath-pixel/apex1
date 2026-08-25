@@ -76,7 +76,7 @@ class DashboardService:
         if path == "/health":
             return {"status": "ok", "read_only": True}
         if path not in self._routes:
-            if path.rstrip("/") in {"/create_order", "/place_order", "/submit_order", "/cancel_order", "/orders"}:
+            if path.rstrip("/") in {"/order", "/orders", "/trade", "/execute", "/cancel", "/position", "/create_order", "/place_order", "/submit_order", "/cancel_order"}:
                 raise PermissionError("Live order endpoints are disabled")
             raise KeyError(path)
         result = self.result_provider()

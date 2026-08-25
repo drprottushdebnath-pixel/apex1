@@ -22,7 +22,7 @@ class QualityResult:
 class DataQualityEngine:
     """Fail-closed validation for raw market observations at an event cutoff."""
 
-    def validate_event(self, event: dict[str, Any], *, as_of: float | None = None, symbol: str | None = None) -> QualityResult:
+    def validate_event(self, event: dict[str, Any], *, as_of: float | None = None, symbol: str | None = None, timeframe: str | None = None) -> QualityResult:
         reasons: list[str] = []
         event_time = event.get("event_time", event.get("timestamp", event.get("T")))
         try:
@@ -37,6 +37,8 @@ class DataQualityEngine:
         observed_symbol = event.get("symbol")
         if symbol and observed_symbol and str(observed_symbol).upper() != symbol.upper():
             reasons.append("SYMBOL_MISMATCH")
+        if timeframe and event.get("timeframe") and str(event["timeframe"]) != timeframe:
+            reasons.append("TIMEFRAME_MISMATCH")
         if event.get("duplicate") or event.get("duplicate_id"):
             return QualityResult("DUPLICATE", ("DUPLICATE_EVENT",))
         kind = str(event.get("kind", event.get("type", ""))).lower()
@@ -77,6 +79,8 @@ class DataQualityEngine:
                 reasons.append("INVALID_PRICE")
         if event.get("sequence_gap") or event.get("out_of_order"):
             reasons.append("INVALID_SEQUENCE")
+        if event.get("conflicting_snapshot"):
+            reasons.append("CONFLICTING_SNAPSHOT")
         if event.get("missing"):
             return QualityResult("INCOMPLETE", ("MISSING_DATA",))
         if event.get("stale"):
