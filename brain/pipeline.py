@@ -97,7 +97,7 @@ class ApexBrainPipeline:
 
         self.liquidity.symbol = context.symbol.upper()
         liquidity = self.liquidity.analyze(candles, as_of=as_of)
-        fvg = self.fvg.analyze(candles, as_of=as_of)
+        fvg = self.fvg.analyze(candles, as_of=as_of, symbol=context.symbol)
         vwap = VWAPCalculator.calculate(candles, as_of=as_of)
         volatility = self.atr.calculate(candles, as_of=as_of)
         volatility_regime = self.atr.classify_regime(

@@ -41,6 +41,12 @@ class FairValueGap:
 
     fill_pct: float = 0.0
 
+    creation_time: float | None = None
+
+    symbol: str | None = None
+
+    invalidated: bool = False
+
     @property
 
     def price(self) -> float:
@@ -72,6 +78,12 @@ class FairValueGap:
             "filled": self.filled,
 
             "fill_pct": self.fill_pct,
+
+            "creation_time": self.creation_time,
+
+            "symbol": self.symbol,
+
+            "invalidated": self.invalidated,
 
         }
 
@@ -319,16 +331,21 @@ class FVGEngine:
 
         candles: list[dict[str, Any]],
         as_of: float | None = None,
+        symbol: str | None = None,
 
     ) -> list[FairValueGap]:
 
         gaps: list[FairValueGap] = []
-        if as_of is not None:
-            candles = [
-                candle for candle in candles
-                if candle.get("event_time", candle.get("timestamp")) is None
+        candles = [
+            candle for candle in candles
+            if candle.get("confirmed", True)
+            and (symbol is None or candle.get("symbol") in {None, symbol})
+            and (
+                as_of is None
+                or candle.get("event_time", candle.get("timestamp")) is None
                 or float(candle.get("event_time", candle.get("timestamp"))) <= as_of
-            ]
+            )
+        ]
 
         if len(candles) < 3:
 
@@ -392,6 +409,10 @@ class FVGEngine:
 
                             size_pct=size_pct,
 
+                            creation_time=right.get("event_time", right.get("timestamp")),
+
+                            symbol=symbol or right.get("symbol"),
+
                         )
 
                     )
@@ -440,6 +461,10 @@ class FVGEngine:
 
                             size_pct=size_pct,
 
+                            creation_time=right.get("event_time", right.get("timestamp")),
+
+                            symbol=symbol or right.get("symbol"),
+
                         )
 
                     )
@@ -479,6 +504,8 @@ class FVGEngine:
 
                 candle = candles[i]
                 timestamp = candle.get("event_time", candle.get("timestamp"))
+                if candle.get("confirmed", True) is False:
+                    continue
                 if as_of is not None and timestamp is not None and float(timestamp) > as_of:
                     continue
 
@@ -563,10 +590,12 @@ class FVGEngine:
                     size=gap.size,
 
                     size_pct=gap.size_pct,
-
+                    creation_time=gap.creation_time,
+                    symbol=gap.symbol,
                     filled=max_fill >= 1.0,
 
                     fill_pct=max_fill,
+                    invalidated=max_fill >= 1.0,
 
                 )
 
@@ -593,6 +622,7 @@ class FVGEngine:
         if as_of is not None:
             candles = [
                 candle for candle in candles
+                if candle.get("confirmed", True)
                 if candle.get("event_time", candle.get("timestamp")) is None
                 or float(candle.get("event_time", candle.get("timestamp"))) <= as_of
             ]
@@ -695,6 +725,7 @@ class FVGEngine:
 
         candles: list[dict[str, Any]],
         as_of: float | None = None,
+        symbol: str | None = None,
 
     ) -> FVGResult:
 
@@ -724,11 +755,13 @@ class FVGEngine:
 
         visible_candles = [
             candle for candle in candles
+            if candle.get("confirmed", True)
+            and (symbol is None or candle.get("symbol") in {None, symbol})
             if as_of is None
             or candle.get("event_time", candle.get("timestamp")) is None
             or float(candle.get("event_time", candle.get("timestamp"))) <= as_of
         ]
-        gaps = self.detect_fvgs(visible_candles)
+        gaps = self.detect_fvgs(visible_candles, symbol=symbol)
 
         gaps = self.update_fvg_fills(
 
