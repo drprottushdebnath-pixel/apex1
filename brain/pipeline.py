@@ -7,7 +7,7 @@ from brain.confluence import ConfluenceEngine
 from brain.decision import APEXDecisionBrain, BrainDecision
 from brain.execution import ExecutionIntent, ExecutionIntentBuilder
 from brain.fvg import FVGEngine
-from brain.intelligence import MicrostructureEngine
+from brain.intelligence import AbsorptionEngine, AggressionEngine, MicrostructureEngine
 from brain.liquidity import LiquidityEngine
 from brain.oi import OIEngine, OISnapshot
 from brain.risk import RiskGate, RiskResult
@@ -53,6 +53,8 @@ class ApexBrainPipeline:
         self.rvol = RVOLCalculator()
         self.volume_profile = VolumeProfileCalculator()
         self.value = ValueMigrationEngine()
+        self.aggression = AggressionEngine()
+        self.absorption = AbsorptionEngine()
         self.oi = OIEngine()
         self.microstructure = MicrostructureEngine()
         self.confluence = ConfluenceEngine()
@@ -116,6 +118,8 @@ class ApexBrainPipeline:
                 symbol=context.symbol,
             )
         flow_data = self._dict(flow)
+        aggression = self.aggression.analyze(candles, flow_data, as_of=as_of, symbol=context.symbol)
+        absorption = self.absorption.analyze(candles, flow_data, as_of=as_of, symbol=context.symbol)
         oi = context.oi
         if oi is None and context.oi_change is not None and context.price.change_pct is not None:
             oi = self.oi.analyze(OISnapshot(
@@ -216,6 +220,8 @@ class ApexBrainPipeline:
             rvol=rvol,
             volume_profile=volume_profile,
             value=value,
+            aggression=aggression,
+            absorption=absorption,
         )
         decision = self.decision.analyze(enriched)
         risk = self.risk.evaluate(

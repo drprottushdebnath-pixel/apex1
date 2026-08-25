@@ -205,6 +205,8 @@ class MarketContext:
     rvol: Any | None = None
     volume_profile: Any | None = None
     value: Any | None = None
+    aggression: Any | None = None
+    absorption: Any | None = None
     market_regime: str = "unknown"
     microstructure: Any | None = None
     mtf: Any | None = None
@@ -346,6 +348,8 @@ class MarketContext:
             "rvol": serialize(self.rvol),
             "volume_profile": serialize(self.volume_profile),
             "value": serialize(self.value),
+            "aggression": serialize(self.aggression),
+            "absorption": serialize(self.absorption),
             "market_regime": self.market_regime,
             "microstructure": serialize(self.microstructure),
             "mtf": serialize(self.mtf),
