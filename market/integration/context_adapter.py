@@ -84,10 +84,11 @@ class LiveSnapshotContextAdapter:
                 orderbook_imbalance=imbalance,
             ))
         oi_state = self.snapshot.feed.oi_history.state(as_of=cutoff)
+        funding_state = self.snapshot.feed.funding_history.state(as_of=cutoff)
         visible_funding = (
-            data.funding_rate
-            if data.funding_event_time is None or data.funding_event_time <= cutoff
-            else None
+            funding_state.funding_rate
+            if as_of is not None
+            else data.funding_rate
         )
         if quality in {"OK", "DATA_VALID"}:
             if not book_is_visible:
@@ -138,7 +139,10 @@ class LiveSnapshotContextAdapter:
             })
             .add_metadata("volume_24h", data.volume_24h)
             .add_metadata("volume_24h_event_time", data.volume_24h_event_time)
-            .add_metadata("funding_event_time", data.funding_event_time)
+            .add_metadata(
+                "funding_event_time",
+                funding_state.event_time if as_of is not None else data.funding_event_time,
+            )
             .add_metadata("oi_event_time", data.oi_event_time)
             .set_data_quality(quality, quality_reason)
             .build(allow_incomplete=True)

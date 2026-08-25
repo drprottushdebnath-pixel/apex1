@@ -6,6 +6,7 @@ from math import isfinite
 from typing import Any
 
 from market.integration.oi_history import OIHistory
+from market.integration.funding_history import FundingHistory
 from market.integration.price_history import PriceHistory
 
 try:
@@ -197,6 +198,7 @@ class BybitPublicFeed:
 
         self._trade_sequence = 0
         self.oi_history = OIHistory()
+        self.funding_history = FundingHistory(self.symbol)
         self.price_history = PriceHistory()
 
     def _reset_state(self) -> None:
@@ -521,8 +523,14 @@ class BybitPublicFeed:
                     self.data.oi_event_time = state.event_time
                     self.data.oi_stale = state.stale
                 if data.get("fundingRate") is not None:
-                    self.data.funding_rate = float(data["fundingRate"])
-                    self.data.funding_event_time = event_time
+                    funding_rate = float(data["fundingRate"])
+                    if event_time is not None:
+                        funding_state = self.funding_history.ingest(event_time, funding_rate)
+                        self.data.funding_rate = funding_state.funding_rate
+                        self.data.funding_event_time = funding_state.event_time
+                    else:
+                        self.data.funding_rate = funding_rate
+                        self.data.funding_event_time = None
                     self.data.funding_stale = False
                 if data.get("volume24h") is not None:
                     self.data.volume_24h = float(data["volume24h"])
