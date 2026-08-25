@@ -2,6 +2,7 @@ from .intent import (
     ExecutionIntent,
     ExecutionIntentBuilder,
 )
+from .paper import PaperExecutionEngine, PaperPosition
 
 
 class LiveExecutionDisabled(RuntimeError):
@@ -34,4 +35,6 @@ __all__ = [
     "ExecutionIntentBuilder",
     "ExecutionEngine",
     "LiveExecutionDisabled",
+    "PaperExecutionEngine",
+    "PaperPosition",
 ]
