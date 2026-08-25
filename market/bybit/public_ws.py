@@ -53,6 +53,7 @@ class BybitMarketData:
     book_invalid: bool = False
     data_quality: str = "DATA_INCOMPLETE"
     quality_reason: str = "Waiting for a valid order-book snapshot"
+    continuity_status: str = "RECONNECTING"
     candles: list[dict[str, Any]] = field(default_factory=list)
     candles_by_timeframe: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
     candle_event_times: dict[str, float] = field(default_factory=dict)
@@ -103,6 +104,10 @@ class BybitMarketData:
         for name, timestamp in component_times.items():
             if timestamp is not None and current_time - timestamp > limits[name]:
                 return "DATA_STALE", f"{name} data is stale"
+        if self.continuity_status in {"DISCONNECTED", "RECONNECTING", "SEQUENCE_GAP", "OUT_OF_ORDER"}:
+            return "DATA_INCOMPLETE", f"Feed continuity is {self.continuity_status}"
+        if self.candle_event_times and not self.candle_confirmed_times:
+            return "DATA_INCOMPLETE", "No confirmed candle is available"
         if not self.book_ready or self.price is None or self.open_interest is None or self.funding_rate is None:
             return "DATA_INCOMPLETE", "Required market data is unavailable"
         return "DATA_VALID", ""
@@ -213,12 +218,21 @@ class BybitPublicFeed:
         self.data.book_invalid = False
         self.data.data_quality = "DATA_INCOMPLETE"
         self.data.quality_reason = "Waiting for a valid order-book snapshot"
+        self.data.continuity_status = "RECONNECTING"
 
     def _invalid(self, reason: str) -> None:
         self.data.data_quality = "DATA_INVALID"
         self.data.quality_reason = reason
         self.data.book_invalid = True
         self.data.book_ready = False
+        if "sequence gap" in reason.lower():
+            self.data.continuity_status = "SEQUENCE_GAP"
+        elif "out-of-order" in reason.lower():
+            self.data.continuity_status = "OUT_OF_ORDER"
+        elif "sequence gap" in reason.lower():
+            self.data.continuity_status = "SEQUENCE_GAP"
+        else:
+            self.data.continuity_status = "DEGRADED"
 
     def _subscription_message(self):
 
@@ -254,8 +268,11 @@ class BybitPublicFeed:
             if self.data.last_sequence is not None and sequence <= self.data.last_sequence:
                 self._invalid("Out-of-order order-book update")
                 return
+            if self.data.last_sequence is not None and sequence > self.data.last_sequence + 1:
+                self._invalid("Order-book sequence gap")
+                return
         if message.get("type") != "snapshot" and not self.data.book_ready:
-            self._invalid("Order-book delta received before a snapshot")
+            self._invalid("Order-book sequence gap after reconnect")
             return
         previous_sequence = data.get("pu")
         if previous_sequence is not None and self.data.last_sequence is not None:
@@ -356,6 +373,7 @@ class BybitPublicFeed:
             self.data.last_sequence = sequence
         self.data.book_ready = True
         self.data.book_invalid = False
+        self.data.continuity_status = "HEALTHY"
 
         best_bid = self.data.sorted_bids(1)
 
@@ -435,6 +453,10 @@ class BybitPublicFeed:
             "topic",
             "",
         )
+
+        if topic and not topic.endswith(f".{self.symbol}"):
+            self._invalid("Symbol mismatch")
+            return
 
         data = message.get("data")
 

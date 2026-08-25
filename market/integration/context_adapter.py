@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from brain.context import MarketContext, MarketContextBuilder, OrderBook, Trade
 from brain.context import Candle
+from market.integration.data_quality import DataQualityEngine
 
 
 class LiveSnapshotContextAdapter:
@@ -22,6 +23,16 @@ class LiveSnapshotContextAdapter:
         data = self.snapshot.feed.data
         cutoff = data.last_event_time if as_of is None else float(as_of)
         quality, quality_reason = data.quality(now=calculation_time, thresholds=self.snapshot.feed.stale_thresholds)
+        quality_engine = DataQualityEngine()
+        quality_events = [
+            {**item, "event_time": float(item["timestamp"]) / 1000}
+            for item in data.trades
+        ] + list(data.candles)
+        quality_events.sort(key=lambda item: float(item.get("event_time", 0)))
+        quality_results = quality_engine.validate(quality_events, as_of=cutoff, symbol=state.symbol)
+        if any(result.status == "INVALID" for result in quality_results):
+            quality = "DATA_INVALID"
+            quality_reason = "Invalid market event in canonical input"
         price_state = self.snapshot.feed.price_history.state(as_of=cutoff)
         if as_of is not None and price_state.price is None:
             return None
@@ -141,6 +152,8 @@ class LiveSnapshotContextAdapter:
                 for timeframe, items in data.candles_by_timeframe.items()
             })
             .add_metadata("volume_24h", data.volume_24h)
+            .add_metadata("quality_results", [result.to_dict() for result in quality_results])
+            .add_metadata("feed_continuity", data.continuity_status)
             .add_metadata("volume_24h_event_time", data.volume_24h_event_time)
             .add_metadata(
                 "funding_event_time",
