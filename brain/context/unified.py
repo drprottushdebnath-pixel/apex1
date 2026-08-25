@@ -204,6 +204,7 @@ class MarketContext:
     volatility_regime: str = "UNKNOWN"
     rvol: Any | None = None
     volume_profile: Any | None = None
+    value: Any | None = None
     market_regime: str = "unknown"
     microstructure: Any | None = None
     mtf: Any | None = None
@@ -344,6 +345,7 @@ class MarketContext:
             "volatility_regime": self.volatility_regime,
             "rvol": serialize(self.rvol),
             "volume_profile": serialize(self.volume_profile),
+            "value": serialize(self.value),
             "market_regime": self.market_regime,
             "microstructure": serialize(self.microstructure),
             "mtf": serialize(self.mtf),

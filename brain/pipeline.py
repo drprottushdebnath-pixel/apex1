@@ -12,6 +12,7 @@ from brain.liquidity import LiquidityEngine
 from brain.oi import OIEngine, OISnapshot
 from brain.risk import RiskGate, RiskResult
 from brain.structure import MarketStructureEngine, MultiTimeframeStructure
+from brain.value import ValueMigrationEngine
 from market.orderflow import OrderFlowEngine
 from market.indicators import ATRCalculator, RVOLCalculator, VolumeProfileCalculator, VWAPCalculator
 from config.settings import (
@@ -51,6 +52,7 @@ class ApexBrainPipeline:
         self.atr = ATRCalculator()
         self.rvol = RVOLCalculator()
         self.volume_profile = VolumeProfileCalculator()
+        self.value = ValueMigrationEngine()
         self.oi = OIEngine()
         self.microstructure = MicrostructureEngine()
         self.confluence = ConfluenceEngine()
@@ -104,6 +106,7 @@ class ApexBrainPipeline:
         )
         rvol = self.rvol.calculate(candles, as_of=as_of)
         volume_profile = self.volume_profile.calculate(candles, as_of=as_of)
+        value = self.value.analyze(candles, as_of=as_of, symbol=context.symbol)
         orderbook_imbalance = context.order_book.imbalance if context.order_book else None
         flow = context.orderflow
         if context.trades:
@@ -212,6 +215,7 @@ class ApexBrainPipeline:
             volatility_regime=volatility_regime,
             rvol=rvol,
             volume_profile=volume_profile,
+            value=value,
         )
         decision = self.decision.analyze(enriched)
         risk = self.risk.evaluate(
