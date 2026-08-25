@@ -182,6 +182,17 @@ class APEXDecisionBrain:
                 metadata={"data_quality": quality_status},
             )
 
+        market_regime = str(getattr(context, "market_regime", "")).upper()
+        if market_regime in {"BALANCED", "CHOP", "UNKNOWN"}:
+            return BrainDecision(
+                action="WAIT",
+                confidence=0.0,
+                levels=DecisionLevels(),
+                reasons=[f"Market regime is {market_regime}"],
+                invalidation=["Directional regime required"],
+                metadata={"data_quality": quality_status},
+            )
+
         if bias not in {"LONG", "SHORT"}:
             return BrainDecision(
                 action="WAIT",
