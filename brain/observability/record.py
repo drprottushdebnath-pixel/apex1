@@ -15,6 +15,12 @@ class ObservabilityRecord:
     reason_codes: tuple[str, ...]
     rejected_reason: tuple[str, ...]
     evidence: dict[str, Any]
+    entry: float | None = None
+    stop_loss: float | None = None
+    tp1: float | None = None
+    tp2: float | None = None
+    risk: dict[str, Any] | None = None
+    paper_execution: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -39,6 +45,8 @@ class ObservabilityRecorder:
             "orderflow": getattr(context, "orderflow", None) is not None,
             "value": getattr(context, "value", None) is not None,
             "effort": getattr(context, "effort", None) is not None,
+            "fvg": getattr(context, "fvg", None) is not None,
+            "order_block": getattr(context, "order_blocks", None) is not None,
         }
         reason_codes = tuple(decision.reasons)
         rejected = tuple(decision.invalidation) if not decision.is_trade else tuple(result.risk.rejection_reasons)
@@ -52,4 +60,10 @@ class ObservabilityRecorder:
             reason_codes,
             rejected,
             evidence,
+            decision.entry,
+            decision.stop_loss,
+            decision.levels.tp1,
+            decision.levels.tp2,
+            result.risk.to_dict() if hasattr(result.risk, "to_dict") else vars(result.risk),
+            getattr(result, "paper_execution", None),
         )

@@ -1,8 +1,10 @@
 from types import SimpleNamespace
+from threading import Thread
+from urllib.request import urlopen
 
 import pytest
 
-from brain.dashboard import create_app
+from brain.dashboard import DashboardWebSocket, create_app, create_http_server
 from brain.decision import BrainDecision, DecisionLevels
 from brain.risk import RiskResult
 
@@ -32,3 +34,39 @@ def test_dashboard_service_rejects_order_mutation_routes():
         app.get("/create_order")
     with pytest.raises(PermissionError):
         app.get("/cancel_order")
+
+
+def test_http_control_center_is_read_only():
+    server = create_http_server(lambda: result())
+    try:
+        assert server.service.get("/data-quality")["data_quality"] is None
+        assert server.service.get("/feed")["feed"]["event_time"] == 10
+    finally:
+        server.server_close()
+
+
+def test_http_server_serves_canonical_snapshot_and_forbids_mutation():
+    server = create_http_server(lambda: result())
+    thread = Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        with urlopen(f"http://127.0.0.1:{server.server_port}/health") as response:
+            assert response.status == 200
+        with __import__("pytest").raises(Exception):
+            urlopen(f"http://127.0.0.1:{server.server_port}/order", data=b"{}")
+    finally:
+        server.shutdown()
+        server.server_close()
+
+
+def test_websocket_stream_emits_canonical_state_and_rejects_mutation():
+    stream = DashboardWebSocket(lambda: result())
+    updates = __import__("asyncio").run(_one_update(stream))
+    assert updates["symbol"] == "BTCUSDT"
+    with pytest.raises(PermissionError):
+        stream.receive('{"action":"execute"}')
+
+
+async def _one_update(stream):
+    async for update in stream.updates(1):
+        return update

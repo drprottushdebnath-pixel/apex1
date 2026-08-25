@@ -36,15 +36,38 @@ class BacktestEngine:
             decision = record.get("decision") if isinstance(record, dict) else getattr(record, "decision", None)
             if decision is None or not getattr(decision, "is_trade", False):
                 continue
-            entry = float(getattr(decision, "entry"))
-            stop = float(getattr(decision, "stop_loss"))
-            target = float(getattr(getattr(decision, "levels"), "tp1"))
-            final_price = float(record.get("final_price"))
+            if isinstance(record, dict) and (record.get("risk_approved") is False or record.get("quantity", 1) <= 0):
+                continue
+            try:
+                entry = float(getattr(decision, "entry"))
+                stop = float(getattr(decision, "stop_loss"))
+                target = float(getattr(getattr(decision, "levels"), "tp1"))
+            except (TypeError, ValueError, AttributeError):
+                continue
             risk = abs(entry - stop)
-            if risk <= 0:
+            if risk <= 0 or entry <= 0 or stop <= 0 or target <= 0:
                 continue
             direction = decision.action
-            outcome = (final_price - entry) / risk if direction == "LONG" else (entry - final_price) / risk
+            if isinstance(record, dict) and record.get("high") is not None and record.get("low") is not None:
+                high, low = float(record["high"]), float(record["low"])
+                stop_hit = low <= stop if direction == "LONG" else high >= stop
+                target_hit = high >= target if direction == "LONG" else low <= target
+                if stop_hit and target_hit:
+                    outcome = -1.0 if record.get("execution_policy", "stop_first") == "stop_first" else abs(target - entry) / risk
+                elif stop_hit:
+                    outcome = -1.0
+                elif target_hit:
+                    outcome = abs(target - entry) / risk
+                elif record.get("final_price") is not None:
+                    final_price = float(record["final_price"])
+                    outcome = (final_price - entry) / risk if direction == "LONG" else (entry - final_price) / risk
+                else:
+                    continue
+            elif record.get("final_price") is not None:
+                final_price = float(record["final_price"])
+                outcome = (final_price - entry) / risk if direction == "LONG" else (entry - final_price) / risk
+            else:
+                continue
             outcome = round(outcome, 8)
             returns.append(outcome)
             if isinstance(record, dict) and record.get("hold_time") is not None:
