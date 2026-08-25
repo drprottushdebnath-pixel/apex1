@@ -27,6 +27,30 @@ def test_funding_history_empty_and_stale_states_are_explicit():
     assert history.state(7).stale is True
 
 
+def test_funding_state_exposes_event_time_safe_positioning_facts():
+    history = FundingHistory("BTCUSDT", extreme_positive=0.01)
+    history.ingest(10, 0.001)
+    history.ingest(20, 0.004)
+    history.ingest(30, 0.014)
+
+    state = history.state(30)
+
+    assert state.direction == "POSITIVE"
+    assert state.extreme is True
+    assert state.velocity == 0.001
+    assert state.acceleration == 0.0007
+    assert history.state(20).extreme is False
+
+
+def test_funding_thresholds_reject_invalid_configuration():
+    try:
+        FundingHistory("BTCUSDT", extreme_positive=-0.01, extreme_negative=0.01)
+    except ValueError as exc:
+        assert "threshold" in str(exc)
+    else:
+        raise AssertionError("Expected invalid funding thresholds to be rejected")
+
+
 def test_adapter_uses_historical_funding_instead_of_latest_value():
     snapshot = LiveMarketSnapshot("BTCUSDT")
     snapshot.feed.data.symbol = "BTCUSDT"
