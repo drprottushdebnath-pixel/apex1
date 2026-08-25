@@ -21,6 +21,10 @@ class LiquidityPool:
 
     tolerance: float
 
+    symbol: str | None = None
+
+    created_at: float | None = None
+
     def to_dict(self) -> dict[str, Any]:
 
         return {
@@ -36,6 +40,10 @@ class LiquidityPool:
             "touches": self.touches,
 
             "tolerance": self.tolerance,
+
+            "symbol": self.symbol,
+
+            "created_at": self.created_at,
 
         }
 
@@ -59,6 +67,16 @@ class LiquiditySweep:
 
     displacement: bool
 
+    rejection: bool = True
+
+    symbol: str | None = None
+
+    event_time: float | None = None
+
+    @property
+    def confirmed(self) -> bool:
+        return self.rejection and self.displacement
+
     def to_dict(self) -> dict[str, Any]:
 
         return {
@@ -79,6 +97,14 @@ class LiquiditySweep:
 
             "displacement": self.displacement,
 
+            "rejection": self.rejection,
+
+            "confirmed": self.confirmed,
+
+            "symbol": self.symbol,
+
+            "event_time": self.event_time,
+
         }
 
 @dataclass
@@ -98,6 +124,10 @@ class LiquidityResult:
     confidence: float
 
     reasons: list[str]
+
+    symbol: str | None = None
+
+    as_of: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
 
@@ -137,6 +167,10 @@ class LiquidityResult:
 
             "reasons": self.reasons,
 
+            "symbol": self.symbol,
+
+            "as_of": self.as_of,
+
         }
 
 class LiquidityEngine:
@@ -171,6 +205,8 @@ class LiquidityEngine:
 
         displacement_pct: float = 0.001,
 
+        symbol: str | None = None,
+
     ) -> None:
 
         if tolerance_pct <= 0:
@@ -203,6 +239,8 @@ class LiquidityEngine:
 
         self.displacement_pct = displacement_pct
 
+        self.symbol = symbol.upper() if symbol else None
+
     # =========================================================
 
     # PRICE HELPERS
@@ -224,6 +262,35 @@ class LiquidityEngine:
     def _open(self, candle: dict[str, Any]) -> float:
 
         return float(candle.get("open", candle["close"]))
+
+    @staticmethod
+    def _event_time(candle: dict[str, Any]) -> float | None:
+        value = candle.get("event_time", candle.get("timestamp"))
+        return None if value is None else float(value)
+
+    def _visible_candles(
+        self,
+        candles: list[dict[str, Any]],
+        as_of: float | None,
+    ) -> list[dict[str, Any]]:
+        visible = [
+            candle for candle in candles
+            if candle.get("confirmed", True)
+            and (
+                self.symbol is None
+                or candle.get("symbol") is None
+                or str(candle["symbol"]).upper() == self.symbol
+            )
+            and (
+                as_of is None
+                or self._event_time(candle) is None
+                or self._event_time(candle) <= as_of
+            )
+        ]
+        return sorted(
+            visible,
+            key=lambda candle: self._event_time(candle) if self._event_time(candle) is not None else 0.0,
+        )
 
     def _near(
 
@@ -353,6 +420,10 @@ class LiquidityEngine:
 
                     tolerance=self.tolerance_pct,
 
+                    symbol=self.symbol,
+
+                    created_at=self._event_time(candles[group[0][0]]),
+
                 )
 
             )
@@ -386,6 +457,10 @@ class LiquidityEngine:
                     touches=len(group),
 
                     tolerance=self.tolerance_pct,
+
+                    symbol=self.symbol,
+
+                    created_at=self._event_time(candles[group[0][0]]),
 
                 )
 
@@ -427,9 +502,7 @@ class LiquidityEngine:
 
             return None
 
-        if close <= pool.price:
-
-            return None
+        rejection = close > pool.price
 
         wick_size = pool.price - low
 
@@ -470,6 +543,9 @@ class LiquidityEngine:
             wick_size=wick_size,
 
             displacement=displacement,
+            rejection=rejection,
+            symbol=self.symbol,
+            event_time=self._event_time(candle),
 
         )
 
@@ -501,9 +577,7 @@ class LiquidityEngine:
 
             return None
 
-        if close >= pool.price:
-
-            return None
+        rejection = close < pool.price
 
         wick_size = high - pool.price
 
@@ -544,6 +618,9 @@ class LiquidityEngine:
             wick_size=wick_size,
 
             displacement=displacement,
+            rejection=rejection,
+            symbol=self.symbol,
+            event_time=self._event_time(candle),
 
         )
 
@@ -632,156 +709,65 @@ class LiquidityEngine:
     # =========================================================
 
     def analyze(
-
         self,
-
         candles: list[dict[str, Any]],
         as_of: float | None = None,
-
+        symbol: str | None = None,
     ) -> LiquidityResult:
-
-        if as_of is not None:
-            candles = [
-                candle for candle in candles
-                if candle.get("event_time", candle.get("timestamp")) is None
-                or float(candle.get("event_time", candle.get("timestamp"))) <= as_of
-            ]
-
+        if symbol is not None:
+            self.symbol = symbol.upper()
+        candles = self._visible_candles(candles, as_of)
         if not candles:
-
             return LiquidityResult(
-
                 buy_side_pools=[],
-
                 sell_side_pools=[],
-
                 sweeps=[],
-
                 latest_sweep=None,
-
                 bias="WAIT",
-
                 confidence=0.0,
-
                 reasons=[],
-
+                symbol=self.symbol,
+                as_of=as_of,
             )
 
-        buy_side, sell_side = (
-
-            self.detect_pools(candles)
-
+        buy_side, sell_side = self.detect_pools(candles)
+        sweeps = self.detect_sweeps(candles, buy_side, sell_side)
+        latest = next(
+            (sweep for sweep in reversed(sweeps) if sweep.rejection),
+            sweeps[-1] if sweeps else None,
         )
-
-        sweeps = self.detect_sweeps(
-
-            candles,
-
-            buy_side,
-
-            sell_side,
-
-        )
-
-        latest = (
-
-            sweeps[-1]
-
-            if sweeps
-
-            else None
-
-        )
-
         reasons: list[str] = []
-
         if buy_side:
-
-            reasons.append(
-
-                f"{len(buy_side)} buy-side liquidity pool(s)"
-
-            )
-
+            reasons.append(f"{len(buy_side)} buy-side liquidity pool(s)")
         if sell_side:
-
-            reasons.append(
-
-                f"{len(sell_side)} sell-side liquidity pool(s)"
-
-            )
+            reasons.append(f"{len(sell_side)} sell-side liquidity pool(s)")
 
         confidence = 0.0
-
         bias = "WAIT"
-
         if latest is not None:
-
-            if latest.direction == "BULLISH":
-
+            if latest.direction == "BULLISH" and latest.rejection:
                 bias = "LONG"
-
                 confidence = 70.0
-
-                reasons.append(
-
-                    "Bullish sell-side liquidity sweep"
-
-                )
-
-            elif latest.direction == "BEARISH":
-
+                reasons.append("Bullish sell-side liquidity sweep")
+            elif latest.direction == "BEARISH" and latest.rejection:
                 bias = "SHORT"
-
                 confidence = 70.0
-
-                reasons.append(
-
-                    "Bearish buy-side liquidity sweep"
-
-                )
-
+                reasons.append("Bearish buy-side liquidity sweep")
             if latest.displacement:
-
                 confidence += 20.0
-
-                reasons.append(
-
-                    "Post-sweep displacement confirmed"
-
-                )
-
+                reasons.append("Post-sweep displacement confirmed")
             else:
-
-                reasons.append(
-
-                    "Sweep detected without displacement confirmation"
-
-                )
-
-        confidence = min(
-
-            100.0,
-
-            confidence,
-
-        )
+                reasons.append("Sweep detected without rejection or displacement confirmation")
 
         return LiquidityResult(
-
             buy_side_pools=buy_side,
-
             sell_side_pools=sell_side,
-
             sweeps=sweeps,
-
             latest_sweep=latest,
-
             bias=bias,
-
-            confidence=confidence,
-
+            confidence=min(100.0, confidence),
             reasons=reasons,
-
+            symbol=self.symbol,
+            as_of=as_of,
         )
 

@@ -86,6 +86,7 @@ class ApexBrainPipeline:
             timeframe_metadata=context.metadata.get("timeframe_metadata"),
         )
 
+        self.liquidity.symbol = context.symbol.upper()
         liquidity = self.liquidity.analyze(candles, as_of=as_of)
         fvg = self.fvg.analyze(candles, as_of=as_of)
         vwap = VWAPCalculator.calculate(candles, as_of=as_of)
@@ -104,7 +105,6 @@ class ApexBrainPipeline:
             flow = self.orderflow.analyze(
                 [vars(trade) for trade in context.trades],
                 orderbook_imbalance=orderbook_imbalance or 0.0,
-                as_of=as_of,
                 symbol=context.symbol,
             )
         flow_data = self._dict(flow)
