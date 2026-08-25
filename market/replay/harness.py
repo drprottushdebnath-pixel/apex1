@@ -67,16 +67,35 @@ class RawBybitReplayHarness:
         self.timeframe_metadata = timeframe_metadata or {}
 
     def run(self, pipeline):
+        steps = self.run_steps(pipeline)
+        if not steps:
+            snapshot = LiveMarketSnapshot(self.symbol)
+            for event in self.events:
+                snapshot.feed._process_message(event.message, received_time=event.received_time)
+            context = LiveSnapshotContextAdapter(snapshot).build(
+                calculation_time=self.events[-1].received_time if self.events else 0.0,
+            )
+            if context is None:
+                raise ValueError("Raw replay produced no price-bearing market context")
+            context.metadata["timeframe_metadata"] = self.timeframe_metadata
+            return RawReplayResult(pipeline.run(context))
+        return steps[-1]
+
+    def run_steps(self, pipeline):
         snapshot = LiveMarketSnapshot(self.symbol)
+        results = []
         for event in self.events:
             snapshot.feed._process_message(
                 event.message,
                 received_time=event.received_time,
             )
-        adapter = LiveSnapshotContextAdapter(snapshot)
-        calculation_time = self.events[-1].received_time if self.events else 0.0
-        context = adapter.build(calculation_time=calculation_time)
-        if context is None:
-            raise ValueError("Raw replay produced no price-bearing market context")
-        context.metadata["timeframe_metadata"] = self.timeframe_metadata
-        return RawReplayResult(pipeline.run(context))
+            adapter = LiveSnapshotContextAdapter(snapshot)
+            context = adapter.build(
+                calculation_time=event.received_time,
+                as_of=event.event_time,
+            )
+            if context is None:
+                continue
+            context.metadata["timeframe_metadata"] = self.timeframe_metadata
+            results.append(RawReplayResult(pipeline.run(context)))
+        return results
