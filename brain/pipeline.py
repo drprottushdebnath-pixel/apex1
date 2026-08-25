@@ -15,6 +15,7 @@ from brain.structure import MarketStructureEngine, MultiTimeframeStructure
 from brain.setup import SetupEngine
 from brain.entry import EntryEngine
 from brain.monitoring import PreExpansionDetector
+from brain.observability import ObservabilityRecorder
 from brain.value import ValueMigrationEngine
 from market.orderflow import OrderFlowEngine
 from market.indicators import ATRCalculator, RVOLCalculator, VolumeProfileCalculator, VWAPCalculator
@@ -63,6 +64,7 @@ class ApexBrainPipeline:
         self.setup = SetupEngine()
         self.entry = EntryEngine()
         self.pre_expansion = PreExpansionDetector()
+        self.observability = ObservabilityRecorder()
         self.oi = OIEngine()
         self.microstructure = MicrostructureEngine()
         self.confluence = ConfluenceEngine()
@@ -284,7 +286,8 @@ class ApexBrainPipeline:
         intent = None
         if decision.entry is not None and decision.stop_loss is not None:
             intent = self.intent.build(symbol=enriched.symbol, decision=decision, risk=risk)
-        return PipelineResult(enriched, decision, risk, intent)
+        final_result = PipelineResult(enriched, decision, risk, intent)
+        return PipelineResult(replace(enriched, observability=self.observability.record(final_result)), decision, risk, intent)
 
 
 BrainPipeline = ApexBrainPipeline
