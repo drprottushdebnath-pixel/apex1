@@ -117,6 +117,7 @@ class ConfluenceEngine:
         "funding": 5.0,
         "rvol": 5.0,
         "volume_profile": 3.0,
+        "value": 5.0,
     }
 
     def __init__(
@@ -277,6 +278,9 @@ class ConfluenceEngine:
 
     def volume_profile(self, direction: str, reason: str = "") -> Signal:
         return self._make_signal("Volume Profile Context", direction, "volume_profile", reason=reason)
+
+    def value(self, direction: str, reason: str = "") -> Signal:
+        return self._make_signal("Value Migration", direction, "value", reason=reason)
 
     def oi(
         self,

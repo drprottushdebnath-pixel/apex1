@@ -178,6 +178,13 @@ def test_empty_signals():
     assert result.status == "NO_SIGNAL"
 
 
+def test_value_migration_is_bounded_contextual_evidence():
+    signal = ConfluenceEngine().value("BULLISH", "Value migrating higher")
+
+    assert signal.name == "Value Migration"
+    assert signal.score == 5.0
+
+
 def test_custom_weights():
 
     engine = ConfluenceEngine(

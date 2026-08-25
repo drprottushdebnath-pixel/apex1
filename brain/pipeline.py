@@ -203,6 +203,11 @@ class ApexBrainPipeline:
                 signals.append(self.confluence.volume_profile("BULLISH", "Price above value area high"))
             elif context.current_price < volume_profile.val:
                 signals.append(self.confluence.volume_profile("BEARISH", "Price below value area low"))
+        if value.state == "DIRECTIONAL_AUCTION":
+            if value.migration == "HIGHER" and value.acceptance == "HIGHER":
+                signals.append(self.confluence.value("BULLISH", "Value migrating higher with acceptance"))
+            elif value.migration == "LOWER" and value.acceptance == "LOWER":
+                signals.append(self.confluence.value("BEARISH", "Value migrating lower with acceptance"))
         confluence = self.confluence.analyze(signals)
         enriched = replace(
             context,
