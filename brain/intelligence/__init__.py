@@ -13,6 +13,7 @@ from .effort import (
     AggressionEngine,
     AggressionResult,
 )
+from .regime import RegimeEngine, RegimeResult
 
 __all__ = [
     "MicrostructureEngine",
@@ -23,4 +24,6 @@ __all__ = [
     "AggressionResult",
     "AbsorptionEngine",
     "AbsorptionResult",
+    "RegimeEngine",
+    "RegimeResult",
 ]

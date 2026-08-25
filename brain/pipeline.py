@@ -7,7 +7,7 @@ from brain.confluence import ConfluenceEngine
 from brain.decision import APEXDecisionBrain, BrainDecision
 from brain.execution import ExecutionIntent, ExecutionIntentBuilder
 from brain.fvg import FVGEngine
-from brain.intelligence import AbsorptionEngine, AggressionEngine, MicrostructureEngine
+from brain.intelligence import AbsorptionEngine, AggressionEngine, MicrostructureEngine, RegimeEngine
 from brain.liquidity import LiquidityEngine
 from brain.oi import OIEngine, OISnapshot
 from brain.risk import RiskGate, RiskResult
@@ -55,6 +55,7 @@ class ApexBrainPipeline:
         self.value = ValueMigrationEngine()
         self.aggression = AggressionEngine()
         self.absorption = AbsorptionEngine()
+        self.regime = RegimeEngine()
         self.oi = OIEngine()
         self.microstructure = MicrostructureEngine()
         self.confluence = ConfluenceEngine()
@@ -120,6 +121,14 @@ class ApexBrainPipeline:
         flow_data = self._dict(flow)
         aggression = self.aggression.analyze(candles, flow_data, as_of=as_of, symbol=context.symbol)
         absorption = self.absorption.analyze(candles, flow_data, as_of=as_of, symbol=context.symbol)
+        regime = self.regime.analyze(
+            candles,
+            structure=structure,
+            value=value,
+            aggression=aggression,
+            as_of=as_of,
+            symbol=context.symbol,
+        )
         oi = context.oi
         if oi is None and context.oi_change is not None and context.price.change_pct is not None:
             oi = self.oi.analyze(OISnapshot(
@@ -227,6 +236,7 @@ class ApexBrainPipeline:
             value=value,
             aggression=aggression,
             absorption=absorption,
+            market_regime=regime.state,
         )
         decision = self.decision.analyze(enriched)
         risk = self.risk.evaluate(
