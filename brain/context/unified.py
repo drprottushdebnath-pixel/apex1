@@ -209,6 +209,7 @@ class MarketContext:
     absorption: Any | None = None
     effort: Any | None = None
     setup: Any | None = None
+    entry: Any | None = None
     market_regime: str = "unknown"
     microstructure: Any | None = None
     mtf: Any | None = None
@@ -354,6 +355,7 @@ class MarketContext:
             "absorption": serialize(self.absorption),
             "effort": serialize(self.effort),
             "setup": serialize(self.setup),
+            "entry": serialize(self.entry),
             "market_regime": self.market_regime,
             "microstructure": serialize(self.microstructure),
             "mtf": serialize(self.mtf),
